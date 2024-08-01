@@ -7,10 +7,11 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.39.2", features = ["full"] }
-tun = { version = "0.6.1", features = ["async"] }
+pnet = "0.35"
+etherparse = "0.14.3"
+nom = "7.1"
 openssl = "0.10"
 tokio-openssl = "0.6"
-pnet = "0.27"
 log = "0.4.16"
 clap = { version = "4.5.11", features = ["derive"] }
 env_logger = "0.11.5"

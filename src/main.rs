@@ -1,42 +1,39 @@
+mod redis;
 mod tun;
+
 use clap::Parser;
 use env_logger;
+use redis::RespHandler;
 use std::io;
 use std::sync::Arc;
-use tokio::{sync::Mutex, task};
-
-use tun::{PrintHandler, Tun};
+use tokio::sync::Mutex;
+use tun::Observer;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The name of the TUN/TAP interface
-    #[arg(short, long, default_value = "tun0")]
+    #[arg(short, long, default_value = "lo0")]
     interface: String,
 
-    /// Use TAP mode instead of TUN mode
-    #[arg(long)]
-    tap: bool,
+    /// The port to listen for redis handler
+    #[arg(short, long, default_value = "6379")]
+    redis_port: u16,
 }
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
     env_logger::init();
 
-    //let args = Args::parse();
-    let tun_device = Arc::new(Mutex::new(Tun::new().unwrap()));
+    let args = Args::parse();
 
-    let handler = Arc::new(Mutex::new(PrintHandler::new()));
+    let handler = Arc::new(Mutex::new(RespHandler::new(args.redis_port)));
+    let observer = Observer::new();
 
-    loop {
-        let handler_clone = handler.clone();
-        let tun_device = tun_device.clone();
-        task::spawn(async move {
-            if let Err(e) = tun_device.lock().await.handle_packet(handler_clone).await {
-                log::error!("Failed to handle packet: {}", e);
-            }
-        })
+    observer
+        .capture_packets(&args.interface, handler)
         .await
         .unwrap();
-    }
+
+    Ok(())
 }
