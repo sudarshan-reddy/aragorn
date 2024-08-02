@@ -1,5 +1,4 @@
 use anyhow::Result;
-use pnet::datalink::{self, Channel::Ethernet};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::ipv4::Ipv4Packet;
@@ -16,9 +15,8 @@ pub trait Handler<T>: Send + Sync {
     async fn process(&self, input: T, metrics: Option<Metrics>) -> Result<()>;
 }
 
-pub struct Metrics {
-    pub identifier: u32,
-    pub latency: Option<std::time::Duration>,
+pub trait PacketReader {
+    fn read_packet(&mut self) -> Option<Vec<u8>>;
 }
 
 pub struct Observer {
@@ -41,52 +39,36 @@ impl Observer {
 
     pub async fn capture_packets<T>(
         &self,
-        interface_name: &str,
+        mut reader: impl PacketReader,
         handler: Arc<Mutex<impl Handler<T>>>,
     ) -> Result<()>
     where
         T: Send + 'static,
     {
-        let interfaces = datalink::interfaces();
-        let interface = interfaces
-            .into_iter()
-            .find(|iface| iface.name == interface_name)
-            .ok_or_else(|| anyhow::anyhow!("Device not found"))?;
-
-        let (_, mut rx) = match datalink::channel(&interface, Default::default())? {
-            Ethernet(tx, rx) => (tx, rx),
-            _ => return Err(anyhow::anyhow!("Unhandled channel type")),
-        };
-
         loop {
-            match rx.next() {
-                Ok(packet) => {
-                    // TODO: This isnt the most reliable way to measure time.
-                    // Ideally we should be using the timestamp from the packet header/kernel.
-                    // But this isnt easy enough. One way to do this is to set SO_TIMESTAMP on the socket
-                    // and then read the timestamp from the packet header. For the purpose of the
-                    // POC and simplicity, we are using this method temporarily.
-                    let timestamp = Instant::now();
-                    if let Some(ethernet_packet) = EthernetPacket::new(packet) {
-                        if ethernet_packet.get_ethertype() == EtherTypes::Ipv4 {
-                            if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
-                                match ipv4_packet.get_next_level_protocol() {
-                                    IpNextHeaderProtocols::Tcp => {
-                                        let res = self
-                                            .handle_tcp_packet(&handler, ipv4_packet, timestamp)
-                                            .await;
-                                        if res.is_err() {
-                                            eprintln!("Failed to handle TCP packet: {:?}", res);
-                                        }
+            if let Some(packet) = reader.read_packet() {
+                // TODO: This isnt the most reliable way to measure time.
+                // Ideally we should be using the timestamp from the packet header/kernel.
+                // But this isnt easy enough. One way to do this is to set SO_TIMESTAMP on the socket
+                // and then read the timestamp from the packet header. For the purpose of the
+                // POC and simplicity, we are using this method temporarily.
+                let timestamp = Instant::now();
+                if let Some(ethernet_packet) = EthernetPacket::new(&packet) {
+                    if ethernet_packet.get_ethertype() == EtherTypes::Ipv4 {
+                        if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
+                            match ipv4_packet.get_next_level_protocol() {
+                                IpNextHeaderProtocols::Tcp => {
+                                    let res = self
+                                        .handle_tcp_packet(&handler, ipv4_packet, timestamp)
+                                        .await;
+                                    if res.is_err() {
+                                        eprintln!("Failed to handle TCP packet: {:?}", res);
                                     }
-                                    _ => {}
                                 }
+                                _ => {}
                             }
                         }
                     }
-                }
-                Err(e) => {
-                    eprintln!("An error occurred while reading: {}", e);
                 }
             }
         }
@@ -131,21 +113,10 @@ impl Observer {
         let src_port = tcp_packet.get_source();
         let ack_flag = tcp_packet.get_flags() & pnet::packet::tcp::TcpFlags::ACK != 0;
 
-        //println!(
-        //    "TCP Packet: {} -> {} Flags: SYN: {}, ACK: {}, seq: {}, ack: {}",
-        //    tcp_packet.get_source(),
-        //    tcp_packet.get_destination(),
-        //    syn_flag,
-        //    ack_flag,
-        //    tcp_packet.get_sequence(),
-        //    tcp_packet.get_acknowledgement(),
-        //);
-
         if !ack_flag {
             return None; // Skip if the packet is not an ACK
         }
 
-        // The redis port is the dst port. So this is traffic going from our machine to redis.
         if dst_port == port {
             let mut syn_packets = self.syn_packets.lock().await;
             let identifier = tcp_packet.get_acknowledgement();
@@ -157,7 +128,6 @@ impl Observer {
         }
         if src_port == port {
             let mut syn_packets = self.syn_packets.lock().await;
-            // We match the seq number when src_port == port because this is traffic coming from redis.
             if let Some(time) = syn_packets.remove(&tcp_packet.get_sequence()) {
                 let elapsed = time.elapsed();
                 return Some(Metrics {
@@ -166,6 +136,11 @@ impl Observer {
                 });
             }
         }
-        return None;
+        None
     }
+}
+
+pub struct Metrics {
+    pub identifier: u32,
+    pub latency: Option<std::time::Duration>,
 }
