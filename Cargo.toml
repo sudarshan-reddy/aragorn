@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.39.2", features = ["full"] }
 pnet = "0.35"
-etherparse = "0.14.3"
 nom = "7.1"
 openssl = "0.10"
 tokio-openssl = "0.6"

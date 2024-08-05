@@ -29,13 +29,13 @@ async fn main() -> io::Result<()> {
 
     let args = Args::parse();
 
-    let handler = Arc::new(Mutex::new(RespHandler::new(args.redis_port)));
+    let redis_handler = Arc::new(Mutex::new(RespHandler::new(args.redis_port)));
     let active_packet_reader =
         LivePacketReader::new(&args.interface).expect("Failed to create packet reader");
     let observer = Observer::new();
 
     observer
-        .capture_packets(active_packet_reader, handler)
+        .capture_packets(active_packet_reader, redis_handler)
         .await
         .unwrap();
 
