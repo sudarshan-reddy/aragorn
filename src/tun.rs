@@ -51,7 +51,8 @@ impl Observer {
                 // Ideally we should be using the timestamp from the packet header/kernel.
                 // But this isnt easy enough. One way to do this is to set SO_TIMESTAMP on the socket
                 // and then read the timestamp from the packet header. For the purpose of the
-                // POC and simplicity, we are using this method temporarily.
+                // POC and simplicity, we are using this method temporarily. Moreover, this also
+                // doesn't work if we are playing back a pcap file.
                 let timestamp = Instant::now();
                 if let Some(ethernet_packet) = EthernetPacket::new(&packet) {
                     if ethernet_packet.get_ethertype() == EtherTypes::Ipv4 {
