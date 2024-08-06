@@ -1,5 +1,7 @@
 # Aragorn
 
+[![Rust](https://github.com/sudarshan-reddy/aragorn/actions/workflows/rust.yml/badge.svg)](https://github.com/sudarshan-reddy/aragorn/actions/workflows/rust.yml)
+
 Proof of Concept of a a watcher tool that runs on user-space 
 and monitors tcpdump for predefine-able patterns and has a 
 configurable module to act upon these observed metrics.
