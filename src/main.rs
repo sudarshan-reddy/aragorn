@@ -32,12 +32,18 @@ async fn main() -> io::Result<()> {
     let redis_handler = Arc::new(Mutex::new(RespHandler::new(args.redis_port)));
     let active_packet_reader =
         LivePacketReader::new(&args.interface).expect("Failed to create packet reader");
-    let observer = Observer::new();
+    let observer = Observer::new(tun::ObsConfig {
+        ..Default::default()
+    });
+
+    observer.start_cleanup();
 
     observer
         .capture_packets(active_packet_reader, redis_handler)
         .await
         .unwrap();
+
+    observer.stop();
 
     Ok(())
 }
