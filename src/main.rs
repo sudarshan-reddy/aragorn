@@ -1,11 +1,11 @@
 mod live_packet_reader;
-mod redis;
+mod plugin;
 mod tun;
 
 use clap::Parser;
 use env_logger;
 use live_packet_reader::LivePacketReader;
-use redis::RespHandler;
+use plugin::redis::handler::RespHandler;
 use std::io;
 use std::sync::Arc;
 use tokio::sync::Mutex;

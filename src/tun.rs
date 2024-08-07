@@ -10,7 +10,10 @@ use std::time::Instant;
 use tokio::sync::{watch, Mutex};
 use tokio::time::Duration;
 
-pub trait Handler<T>: Send + Sync {
+/// Plugin trait that defines the interface for a plugin.
+/// A plugin is a module that can parse a packet, process it and send the result to a handler.
+/// The plugin can be used to implement different types of handlers like a Redis handler, a HTTP handler etc.
+pub trait Plugin<T>: Send + Sync {
     async fn port(&self) -> u16;
     async fn parse_packet(&self, buf: Vec<u8>) -> Result<T>;
     async fn process(&self, input: T, metrics: Option<Metrics>) -> Result<()>;
@@ -21,7 +24,6 @@ pub trait PacketReader {
 }
 
 pub struct Observer {
-    // TODO (for later): This should also be an LRU perhaps so we dont grow indiscriminately.
     syn_packets: Arc<Mutex<HashMap<u32, Instant>>>,
     ttl: Duration,
     stop_tx: watch::Sender<bool>,
@@ -75,7 +77,7 @@ impl Observer {
     pub async fn capture_packets<T>(
         &self,
         mut reader: impl PacketReader,
-        handler: Arc<Mutex<impl Handler<T>>>,
+        plugin: Arc<Mutex<impl Plugin<T>>>,
     ) -> Result<()>
     where
         T: Send + 'static,
@@ -89,7 +91,7 @@ impl Observer {
                     }
                 }
                 Some(packet) = async { reader.read_packet() } => {
-                    self.handle_packet(&handler, packet).await?;
+                    self.handle_packet(&plugin, packet).await?;
                 }
             }
         }
@@ -98,7 +100,7 @@ impl Observer {
 
     async fn handle_packet<T>(
         &self,
-        handler: &Arc<Mutex<impl Handler<T>>>,
+        plugin: &Arc<Mutex<impl Plugin<T>>>,
         packet: Vec<u8>,
     ) -> Result<()>
     where
@@ -115,7 +117,7 @@ impl Observer {
             match ethernet_packet.get_ethertype() {
                 EtherTypes::Ipv4 => {
                     if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
-                        self.handle_ipv4_packet(handler, ipv4_packet, timestamp)
+                        self.handle_ipv4_packet(plugin, ipv4_packet, timestamp)
                             .await?;
                     }
                 }
@@ -127,7 +129,7 @@ impl Observer {
 
     async fn handle_ipv4_packet<T>(
         &self,
-        handler: &Arc<Mutex<impl Handler<T>>>,
+        plugin: &Arc<Mutex<impl Plugin<T>>>,
         ipv4_packet: Ipv4Packet<'_>,
         timestamp: Instant,
     ) -> Result<()>
@@ -136,8 +138,7 @@ impl Observer {
     {
         match ipv4_packet.get_next_level_protocol() {
             IpNextHeaderProtocols::Tcp => {
-                self.handle_tcp_packet(handler, ipv4_packet, timestamp)
-                    .await
+                self.handle_tcp_packet(plugin, ipv4_packet, timestamp).await
             }
             _ => Ok(()),
         }
@@ -145,7 +146,7 @@ impl Observer {
 
     async fn handle_tcp_packet<T>(
         &self,
-        handler: &Arc<Mutex<impl Handler<T>>>,
+        plugin: &Arc<Mutex<impl Plugin<T>>>,
         ipv4_packet: Ipv4Packet<'_>,
         timestamp: Instant,
     ) -> Result<()>
@@ -154,7 +155,7 @@ impl Observer {
     {
         let tcp_packet = TcpPacket::new(ipv4_packet.payload())
             .ok_or_else(|| anyhow::anyhow!("Failed to parse TCP packet from IPv4 payload"))?;
-        let port = handler.lock().await.port().await;
+        let port = plugin.lock().await.port().await;
         let dst_port = tcp_packet.get_destination();
         let src_port = tcp_packet.get_source();
         if dst_port != port && src_port != port {
@@ -168,8 +169,8 @@ impl Observer {
             return Ok(()); // Skip if payload is empty
         }
 
-        let parsed_packet = handler.lock().await.parse_packet(payload.to_vec()).await?;
-        handler.lock().await.process(parsed_packet, metrics).await
+        let parsed_packet = plugin.lock().await.parse_packet(payload.to_vec()).await?;
+        plugin.lock().await.process(parsed_packet, metrics).await
     }
 
     async fn get_metrics(
@@ -244,15 +245,15 @@ mod tests {
         assert!(metrics.is_none());
     }
 
-    struct MockHandler;
+    struct MockPlugin;
 
-    impl MockHandler {
+    impl MockPlugin {
         fn new() -> Self {
-            MockHandler
+            MockPlugin
         }
     }
 
-    impl Handler<Vec<u8>> for MockHandler {
+    impl Plugin<Vec<u8>> for MockPlugin {
         async fn port(&self) -> u16 {
             1234
         }
@@ -275,7 +276,7 @@ mod tests {
                 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01,
             ]],
         };
-        let handler = Arc::new(Mutex::new(MockHandler::new()));
+        let plugin = Arc::new(Mutex::new(MockPlugin::new()));
         let obs = Arc::new(Mutex::new(Observer::new(ObsConfig::default())));
 
         let stop_tx = obs.lock().await.stop_tx.clone();
@@ -283,13 +284,10 @@ mod tests {
         let obs_clone = Arc::clone(&obs);
 
         // Start the packet capture in a separate task
-        let capture_task = tokio::spawn(async move {
-            obs_clone
-                .lock()
-                .await
-                .capture_packets(reader, handler)
-                .await
-        });
+        let capture_task =
+            tokio::spawn(
+                async move { obs_clone.lock().await.capture_packets(reader, plugin).await },
+            );
 
         // Run the capture for a short duration and then signal stop
         tokio::time::sleep(Duration::from_secs(1)).await;
