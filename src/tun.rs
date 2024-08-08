@@ -9,15 +9,10 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{watch, Mutex};
 use tokio::time::Duration;
+use tracing::error;
 
-/// Plugin trait that defines the interface for a plugin.
-/// A plugin is a module that can parse a packet, process it and send the result to a handler.
-/// The plugin can be used to implement different types of handlers like a Redis handler, a HTTP handler etc.
-pub trait Plugin<T>: Send + Sync {
-    async fn port(&self) -> u16;
-    async fn parse_packet(&self, buf: Vec<u8>) -> Result<T>;
-    async fn process(&self, input: T, metrics: Option<Metrics>) -> Result<()>;
-}
+use crate::plugin::{Metrics, Plugin};
+use crate::post_processor::{PostProcessor, ProcessedResult};
 
 pub trait PacketReader {
     fn read_packet(&mut self) -> Option<Vec<u8>>;
@@ -26,6 +21,10 @@ pub trait PacketReader {
 pub struct Observer {
     syn_packets: Arc<Mutex<HashMap<u32, Instant>>>,
     ttl: Duration,
+    cleanup_interval: Duration,
+
+    post_processors: Vec<Arc<Mutex<dyn PostProcessor>>>,
+
     stop_tx: watch::Sender<bool>,
     stop_rx: watch::Receiver<bool>,
 }
@@ -50,37 +49,45 @@ impl Observer {
     /// Default cleanup interval is 1 second.
     pub fn new(cfg: ObsConfig) -> Self {
         let (stop_tx, stop_rx) = watch::channel(false);
-        let obs = Observer {
+        Observer {
             syn_packets: Arc::new(Mutex::new(HashMap::new())),
+            post_processors: vec![],
             ttl: cfg.ttl,
+            cleanup_interval: cfg.cleanup_interval,
             stop_tx,
             stop_rx,
-        };
+        }
+    }
 
-        obs
+    pub fn add_post_processor(&mut self, post_processor: Arc<Mutex<dyn PostProcessor>>) {
+        self.post_processors.push(post_processor);
     }
 
     pub fn start_cleanup(&self) {
         let syn_packets = self.syn_packets.clone();
         let ttl = self.ttl;
-        let cleanup_interval = async move {
+        let cleanup_interval = self.cleanup_interval;
+        let cleanup_fn = async move {
             loop {
-                tokio::time::sleep(ttl).await;
+                tokio::time::sleep(cleanup_interval).await;
                 let mut syn_packets = syn_packets.lock().await;
                 let now = Instant::now();
                 syn_packets.retain(|_, v| now.duration_since(*v) < ttl);
             }
         };
-        tokio::spawn(cleanup_interval);
+        tokio::spawn(cleanup_fn);
     }
 
-    pub async fn capture_packets<T>(
+    pub async fn capture_packets<H, R>(
         &self,
         mut reader: impl PacketReader,
-        plugin: Arc<Mutex<impl Plugin<T>>>,
+        // TODO: These two should be paired and we need to expose a register method to have
+        // more of these pairs and not take them as inputs here.
+        handler: Arc<Mutex<H>>,
     ) -> Result<()>
     where
-        T: Send + 'static,
+        R: Send + 'static + Into<ProcessedResult>,
+        H: Plugin<R>,
     {
         let mut stop_rx = self.stop_rx.clone();
         loop {
@@ -91,20 +98,34 @@ impl Observer {
                     }
                 }
                 Some(packet) = async { reader.read_packet() } => {
-                    self.handle_packet(&plugin, packet).await?;
+                    let res = self.handle_packet(&handler, packet).await;
+                    match res {
+                        Ok(x) => {
+                            if let Some(result) = x {
+                                let result = &result.into();
+                                for post_processor in &self.post_processors {
+                                    post_processor.lock().await.post_process(result.clone()).await?;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Error: {:?}", e);
+                        }
+                    }
                 }
             }
         }
         Ok(())
     }
 
-    async fn handle_packet<T>(
+    async fn handle_packet<H, R>(
         &self,
-        plugin: &Arc<Mutex<impl Plugin<T>>>,
+        handler: &Arc<Mutex<H>>,
         packet: Vec<u8>,
-    ) -> Result<()>
+    ) -> Result<Option<R>>
     where
-        T: Send + 'static,
+        R: Send + 'static,
+        H: Plugin<R>,
     {
         // TODO: This isnt the most reliable way to measure time.
         // Ideally we should be using the timestamp from the packet header/kernel.
@@ -114,63 +135,71 @@ impl Observer {
         // doesn't work if we are playing back a pcap file.
         let timestamp = Instant::now();
         if let Some(ethernet_packet) = EthernetPacket::new(&packet) {
+            #[allow(clippy::single_match)]
             match ethernet_packet.get_ethertype() {
                 EtherTypes::Ipv4 => {
                     if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
-                        self.handle_ipv4_packet(plugin, ipv4_packet, timestamp)
-                            .await?;
+                        return self
+                            .handle_ipv4_packet(handler, ipv4_packet, timestamp)
+                            .await;
                     }
                 }
                 _ => {}
             }
         }
-        Ok(())
+        Ok(None)
     }
 
-    async fn handle_ipv4_packet<T>(
+    async fn handle_ipv4_packet<H, R>(
         &self,
-        plugin: &Arc<Mutex<impl Plugin<T>>>,
+        handler: &Arc<Mutex<H>>,
         ipv4_packet: Ipv4Packet<'_>,
         timestamp: Instant,
-    ) -> Result<()>
+    ) -> Result<Option<R>>
     where
-        T: Send + 'static,
+        R: Send + 'static,
+        H: Plugin<R>,
     {
         match ipv4_packet.get_next_level_protocol() {
             IpNextHeaderProtocols::Tcp => {
-                self.handle_tcp_packet(plugin, ipv4_packet, timestamp).await
+                self.handle_tcp_packet(handler, ipv4_packet, timestamp)
+                    .await
             }
-            _ => Ok(()),
+            _ => Ok(None),
         }
     }
 
-    async fn handle_tcp_packet<T>(
+    async fn handle_tcp_packet<H, R>(
         &self,
-        plugin: &Arc<Mutex<impl Plugin<T>>>,
+        handler: &Arc<Mutex<H>>,
         ipv4_packet: Ipv4Packet<'_>,
         timestamp: Instant,
-    ) -> Result<()>
+    ) -> Result<Option<R>>
     where
-        T: Send + 'static,
+        R: Send + 'static,
+        H: Plugin<R>,
     {
         let tcp_packet = TcpPacket::new(ipv4_packet.payload())
             .ok_or_else(|| anyhow::anyhow!("Failed to parse TCP packet from IPv4 payload"))?;
-        let port = plugin.lock().await.port().await;
+        let port = handler.lock().await.port().await;
         let dst_port = tcp_packet.get_destination();
         let src_port = tcp_packet.get_source();
         if dst_port != port && src_port != port {
-            return Ok(()); // Skip if the port does not match
+            return Ok(None); // Skip if the port does not match
         }
 
         let metrics = self.get_metrics(&tcp_packet, timestamp, port).await;
 
         let payload = tcp_packet.payload();
         if payload.is_empty() {
-            return Ok(()); // Skip if payload is empty
+            return Ok(None); // Skip if payload is empty
         }
 
-        let parsed_packet = plugin.lock().await.parse_packet(payload.to_vec()).await?;
-        plugin.lock().await.process(parsed_packet, metrics).await
+        handler
+            .lock()
+            .await
+            .process(payload.to_vec(), metrics)
+            .await
     }
 
     async fn get_metrics(
@@ -210,18 +239,14 @@ impl Observer {
     }
 
     pub fn stop(&self) {
-        let _ = self.stop_tx.send(true).unwrap();
+        self.stop_tx.send(true).unwrap();
     }
-}
-
-#[derive(Debug)]
-pub struct Metrics {
-    pub identifier: u32,
-    pub latency: Option<std::time::Duration>,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::post_processor::PrometheusResult;
+
     use super::*;
 
     // Mock the PacketReader trait
@@ -253,17 +278,29 @@ mod tests {
         }
     }
 
-    impl Plugin<Vec<u8>> for MockPlugin {
+    impl Plugin<MockResult> for MockPlugin {
         async fn port(&self) -> u16 {
             1234
         }
 
-        async fn parse_packet(&self, buf: Vec<u8>) -> Result<Vec<u8>> {
-            Ok(buf)
+        async fn process(
+            &self,
+            _input: Vec<u8>,
+            _metrics: Option<Metrics>,
+        ) -> Result<Option<MockResult>> {
+            Ok(None)
         }
+    }
 
-        async fn process(&self, _input: Vec<u8>, _metrics: Option<Metrics>) -> Result<()> {
-            Ok(())
+    struct MockResult;
+
+    impl From<MockResult> for ProcessedResult {
+        fn from(_res: MockResult) -> ProcessedResult {
+            ProcessedResult::Prometheus(PrometheusResult {
+                label: "test".to_string(),
+                is_error: false,
+                latency: 0,
+            })
         }
     }
 
