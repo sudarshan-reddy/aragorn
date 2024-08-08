@@ -5,7 +5,7 @@ use nom::{
     IResult,
 };
 
-use std::str;
+use std::{fmt, str};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RespValue {
@@ -14,19 +14,13 @@ pub struct RespValue {
     pub value: Option<String>,
 }
 
-impl RespValue {
-    pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        if let Some(ref command) = self.command {
-            s.push_str(&format!("Command: {}\n", command));
-        }
-        if let Some(ref key) = self.key {
-            s.push_str(&format!("Key: {}\n", key));
-        }
-        if let Some(ref value) = self.value {
-            s.push_str(&format!("Value: {}\n", value));
-        }
-        s
+impl fmt::Display for RespValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "RespValue {{ command: {:?}, key: {:?}, value: {:?} }}",
+            self.command, self.key, self.value
+        )
     }
 }
 
@@ -122,7 +116,7 @@ fn parse_array(input: &[u8]) -> IResult<&[u8], RespValue> {
         values.push(value);
     }
 
-    let command = values.get(0).and_then(|v| v.value.clone());
+    let command = values.first().and_then(|v| v.value.clone());
     let key = values.get(1).and_then(|v| v.value.clone());
     let value = values.get(2).and_then(|v| v.value.clone());
 
