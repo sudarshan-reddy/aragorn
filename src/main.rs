@@ -3,12 +3,16 @@ mod plugin;
 mod post_processor;
 mod tun;
 
+use anyhow::Result;
 use clap::Parser;
 use live_packet_reader::LivePacketReader;
 use plugin::redis::handler::RespHandler;
 use post_processor::prometheus::PrometheusPostProcessor;
-use std::io;
+use prometheus::{gather, Encoder, TextEncoder};
 use std::sync::Arc;
+use std::{io, net::SocketAddr};
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tracing::{error, info, Level};
 use tun::Observer;
@@ -42,6 +46,8 @@ async fn main() -> io::Result<()> {
     observer.add_post_processor(Arc::new(Mutex::new(PrometheusPostProcessor::new())));
     observer.start_cleanup();
 
+    tokio::spawn(run_prometheus_server());
+
     let res = observer
         .capture_packets(active_packet_reader, redis_handler)
         .await;
@@ -54,4 +60,27 @@ async fn main() -> io::Result<()> {
     observer.stop();
 
     Ok(())
+}
+
+async fn run_prometheus_server() -> Result<()> {
+    let addr = SocketAddr::from(([0, 0, 0, 0], 9090));
+    let listener = TcpListener::bind(&addr).await?;
+
+    info!("Prometheus server listening on: {}", addr);
+
+    loop {
+        let (mut socket, _) = listener.accept().await?;
+        let encoder = TextEncoder::new();
+        let metric_families = gather();
+        let mut buffer = vec![];
+        encoder.encode(&metric_families, &mut buffer)?;
+
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+            buffer.len(),
+            String::from_utf8(buffer).unwrap()
+        );
+
+        socket.write_all(response.as_bytes()).await?;
+    }
 }
