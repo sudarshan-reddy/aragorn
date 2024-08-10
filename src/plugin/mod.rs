@@ -1,4 +1,5 @@
 pub mod redis;
+pub mod tlsdecrypt;
 
 use anyhow::Result;
 
