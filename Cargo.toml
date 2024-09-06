@@ -19,6 +19,7 @@ tracing-subscriber = { version = "0.3", features = ["fmt"] }
 lazy_static = "^1.4"
 async-trait = "0.1.81"
 lru = "0.12.4"
+aya = {version = "0.12.0", features = ["async_tokio"]}
 
 [dev-dependencies]
 mockall = "0.13"
