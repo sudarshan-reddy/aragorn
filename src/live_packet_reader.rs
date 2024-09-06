@@ -25,7 +25,7 @@ impl<'a> LivePacketReader<'a> {
 }
 
 impl<'a> PacketReader for LivePacketReader<'a> {
-    fn read_packet(&mut self) -> Option<Vec<u8>> {
+    async fn read_packet(&mut self) -> Option<Vec<u8>> {
         match self.rx.next() {
             Ok(packet) => Some(packet.to_vec()),
             Err(_) => None,

@@ -15,7 +15,7 @@ use crate::plugin::{Metrics, Plugin};
 use crate::post_processor::{PostProcessor, ProcessedResult};
 
 pub trait PacketReader {
-    fn read_packet(&mut self) -> Option<Vec<u8>>;
+    async fn read_packet(&mut self) -> Option<Vec<u8>>;
 }
 
 pub struct Observer {
@@ -97,7 +97,7 @@ impl Observer {
                         break;
                     }
                 }
-                Some(packet) = async { reader.read_packet() } => {
+                Some(packet) =  reader.read_packet()  => {
                     let res = self.handle_packet(&handler, packet).await;
                     match res {
                         Ok(x) => {

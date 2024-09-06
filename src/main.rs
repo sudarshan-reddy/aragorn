@@ -18,7 +18,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tracing::{error, info, Level};
-use tun::{Observer, PacketReader};
+use tun::Observer;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

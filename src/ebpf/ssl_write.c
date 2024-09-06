@@ -1,39 +1,40 @@
-#include <linux/ptrace.h>
-#include <linux/sched.h>
 #include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+#include <linux/ptrace.h>
 
-BPF_PERF_OUTPUT(events);  // Output buffer for user-space events
+#define MAX_BUF_SIZE 256
 
-struct ssl_write_event_t {
-    u32 pid;
-    u32 len;
-    char data[256];
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, MAX_BUF_SIZE);
+    __uint(max_entries, 1);
+} data_buffer SEC(".maps");
 
-// Uprobe attached to the OpenSSL 'SSL_write' function
+struct {
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+} events SEC(".maps");
+
 SEC("uprobe/SSL_write")
-int uprobe__SSL_write(struct pt_regs *ctx) {
-    u32 pid = bpf_get_current_pid_tgid() >> 32;
+int ssl_write_entry(struct pt_regs *ctx)
+{
+    __u64 ssl = PT_REGS_PARM1(ctx);
+    __u64 buf = PT_REGS_PARM2(ctx);
+    __u64 num = PT_REGS_PARM3(ctx);
 
-    // Extract arguments: SSL_write(SSL *ssl, const void *buf, int num)
-    const char *buf = (const char *)PT_REGS_PARM2(ctx);
-    int num = PT_REGS_PARM3(ctx);
+    __u32 key = 0;
+    void *data = bpf_map_lookup_elem(&data_buffer, &key);
+    if (!data)
+        return 0;
 
-    // TODO: This temporarily limtis the buffer size to 256 bytes
-    // Should/Could revisit this to handle larger buffers in the future.
-    if (num > 256) {
-        num = 256;
-    }
+    __u32 size = num < MAX_BUF_SIZE ? num : MAX_BUF_SIZE;
 
-    struct ssl_write_event_t event = {};
-    event.pid = pid;
-    event.len = num;
-
-    // Read user-space buffer
-    bpf_probe_read_user(&event.data, sizeof(event.data), buf);
-
-    // Send the captured data to user space
-    events.perf_submit(ctx, &event, sizeof(event));
+    bpf_probe_read_user(data, size, (void *)buf);
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data, size);
 
     return 0;
 }
+
+char LICENSE[] SEC("license") = "GPL";

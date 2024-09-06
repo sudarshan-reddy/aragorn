@@ -106,6 +106,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "aya",
+ "bytes",
  "clap",
  "lazy_static",
  "lru",
