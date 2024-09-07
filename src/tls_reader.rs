@@ -1,39 +1,31 @@
-use anyhow::Result;
-use aya::util::online_cpus;
-use bytes::BytesMut;
-
 use crate::probes::ssl_write_probe::SslWriteProbe;
 use crate::tun::PacketReader;
+use anyhow::Result;
+use futures::Stream;
+use tokio_stream::StreamExt;
 
 pub struct TlsReader {
-    ssl_write_probe: SslWriteProbe,
+    event_stream: Box<dyn Stream<Item = Result<Vec<u8>>> + Unpin + Send>,
 }
 
 impl TlsReader {
-    pub fn new() -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let ssl_write_probe = SslWriteProbe::new()?;
-        // TODO: Fix unwrap
-        Ok(Self { ssl_write_probe })
+        let event_stream = ssl_write_probe.stream_for_events().await?;
+        Ok(Self {
+            event_stream: Box::new(event_stream),
+        })
     }
 }
 
 impl PacketReader for TlsReader {
     async fn read_packet(&mut self) -> Option<Vec<u8>> {
-        let mut buf = [0; 1024];
-        let cpus = online_cpus().unwrap();
-
-        for cpu in cpus {
-            if let Ok((_cpu, data)) = self
-                .ssl_write_probe
-                .perf_map
-                .lock()
-                .await
-                .read_events(cpu, &mut buf)
-            {
-                if !data.is_empty() {
-                    let mut packet = BytesMut::with_capacity(data[0].len());
-                    packet.extend_from_slice(&data[0]);
-                    return Some(packet.to_vec());
+        while let Some(result) = self.event_stream.next().await {
+            match result {
+                Ok(packet) => return Some(packet),
+                Err(e) => {
+                    eprintln!("Error reading packet: {:?}", e);
+                    continue;
                 }
             }
         }

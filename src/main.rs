@@ -54,7 +54,7 @@ async fn main() -> io::Result<()> {
     tokio::spawn(run_prometheus_server());
 
     let res = if args.tls_mode {
-        let tls_reader = TlsReader::new().expect("Failed to create TLS reader");
+        let tls_reader = TlsReader::new().await.expect("Failed to create TLS reader");
         observer.capture_packets(tls_reader, redis_handler).await
     } else {
         let reader =

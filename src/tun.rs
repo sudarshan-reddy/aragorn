@@ -255,7 +255,7 @@ mod tests {
     }
 
     impl PacketReader for MockPacketReader {
-        fn read_packet(&mut self) -> Option<Vec<u8>> {
+        async fn read_packet(&mut self) -> Option<Vec<u8>> {
             self.packets.pop()
         }
     }

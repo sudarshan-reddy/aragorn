@@ -1,26 +1,29 @@
-use std::process::Command;
-use std::{env, fs};
+use std::path::PathBuf;
 
 fn main() {
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let bpf_dir = "ebpf/";
+    let mut out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    out.push("ssl_write.o");
 
-    // List of eBPF source files to compile
-    let ebpf_files = vec!["ssl_write.c"];
+    let bpf_source = "src/ebpf/ssl_write.c";
+    let bpf_headers = "/usr/include/bpf";
 
-    for file in ebpf_files {
-        let src_path = format!("{}/{}", bpf_dir, file);
-        let obj_path = format!("{}/{}.o", out_dir, file.replace(".c", ""));
+    println!("cargo:rerun-if-changed={}", bpf_source);
 
-        // Run clang to compile the eBPF program
-        let status = Command::new("clang")
-            .args(&["-O2", "-target", "bpf", "-c", &src_path, "-o", &obj_path])
-            .status()
-            .expect("Failed to compile eBPF programs");
+    let clang_args = format!(
+        "-I{} -O2 -target bpf -c {} -o {}",
+        bpf_headers,
+        bpf_source,
+        out.display()
+    );
 
-        assert!(status.success(), "Clang failed with exit code {}", status);
+    if !std::process::Command::new("clang")
+        .args(clang_args.split_whitespace())
+        .status()
+        .expect("failed to execute clang")
+        .success()
+    {
+        panic!("failed to compile BPF program");
     }
 
-    // Output environment variable to be available for Rust code
-    println!("cargo:rerun-if-changed=ebpf/");
+    println!("cargo:rerun-if-changed=build.rs");
 }
