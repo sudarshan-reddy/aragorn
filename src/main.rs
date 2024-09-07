@@ -1,6 +1,8 @@
 mod live_packet_reader;
 mod plugin;
 mod post_processor;
+mod probes;
+mod tls_reader;
 mod tun;
 
 use anyhow::Result;
@@ -11,6 +13,7 @@ use post_processor::prometheus::PrometheusPostProcessor;
 use prometheus::{gather, Encoder, TextEncoder};
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
+use tls_reader::TlsReader;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
@@ -27,6 +30,9 @@ struct Args {
     /// The port to listen for redis handler
     #[arg(short, long, default_value = "6379")]
     redis_port: u16,
+
+    #[arg(short, long, default_value = "false")]
+    tls_mode: bool,
 }
 
 #[tokio::main]
@@ -37,8 +43,7 @@ async fn main() -> io::Result<()> {
     let args = Args::parse();
 
     let redis_handler = Arc::new(Mutex::new(RespHandler::new(args.redis_port)));
-    let active_packet_reader =
-        LivePacketReader::new(&args.interface).expect("Failed to create packet reader");
+
     let mut observer = Observer::new(tun::ObsConfig {
         ..Default::default()
     });
@@ -48,9 +53,14 @@ async fn main() -> io::Result<()> {
 
     tokio::spawn(run_prometheus_server());
 
-    let res = observer
-        .capture_packets(active_packet_reader, redis_handler)
-        .await;
+    let res = if args.tls_mode {
+        let tls_reader = TlsReader::new().await.expect("Failed to create TLS reader");
+        observer.capture_packets(tls_reader, redis_handler).await
+    } else {
+        let reader =
+            LivePacketReader::new(&args.interface).expect("Failed to create packet reader");
+        observer.capture_packets(reader, redis_handler).await
+    };
 
     match res {
         Ok(_) => info!("Observer stopped successfully"),

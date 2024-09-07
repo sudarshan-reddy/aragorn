@@ -25,7 +25,7 @@ impl<'a> LivePacketReader<'a> {
 }
 
 impl<'a> PacketReader for LivePacketReader<'a> {
-    fn read_packet(&mut self) -> Option<Vec<u8>> {
+    async fn read_packet(&mut self) -> Option<Vec<u8>> {
         match self.rx.next() {
             Ok(packet) => Some(packet.to_vec()),
             Err(_) => None,
@@ -55,8 +55,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_read_packet() {
+    #[tokio::test]
+    async fn test_read_packet() {
         // Set up the mock data link receiver
         let mock_packets = vec![
             vec![0x01, 0x02, 0x03],
@@ -72,9 +72,18 @@ mod tests {
             rx: Box::new(mock_receiver),
         };
 
-        assert_eq!(packet_reader.read_packet(), Some(vec![0x07, 0x08, 0x09]));
-        assert_eq!(packet_reader.read_packet(), Some(vec![0x04, 0x05, 0x06]));
-        assert_eq!(packet_reader.read_packet(), Some(vec![0x01, 0x02, 0x03]));
-        assert_eq!(packet_reader.read_packet(), None);
+        assert_eq!(
+            packet_reader.read_packet().await,
+            Some(vec![0x07, 0x08, 0x09])
+        );
+        assert_eq!(
+            packet_reader.read_packet().await,
+            Some(vec![0x04, 0x05, 0x06])
+        );
+        assert_eq!(
+            packet_reader.read_packet().await,
+            Some(vec![0x01, 0x02, 0x03])
+        );
+        assert_eq!(packet_reader.read_packet().await, None);
     }
 }
