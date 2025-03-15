@@ -11,6 +11,7 @@ pnet = "0.35"
 nom = "7.1"
 openssl = "0.10"
 tokio-openssl = "0.6"
+tokio-stream = "0.1.16"
 clap = { version = "4.5.11", features = ["derive"] }
 anyhow = "1.0.86"
 prometheus = "0.13.0"
@@ -18,6 +19,10 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 lazy_static = "^1.4"
 async-trait = "0.1.81"
+lru = "0.12.4"
+aya = {version = "0.12.0", features = ["async_tokio"]}
+bytes = "1.0"
+futures = "0.3"
 
 [dev-dependencies]
 mockall = "0.13"
