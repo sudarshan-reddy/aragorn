@@ -7,7 +7,6 @@ mod tls_reader;
 
 use clap::Parser;
 use dissector::redis::RedisDissector;
-use live_packet_reader::LivePacketReader;
 use packet_router::{PacketRouter, RouterConfig};
 use std::io;
 use std::sync::Arc;
@@ -51,14 +50,8 @@ async fn main() -> io::Result<()> {
     tokio::spawn(metrics::run_prometheus_server());
 
     // Start capturing packets
-    let res = if args.tls_mode {
-        let tls_reader = TlsReader::new().await.expect("Failed to create TLS reader");
-        router.capture_packets(tls_reader, redis_dissector).await
-    } else {
-        let reader =
-            LivePacketReader::new(&args.interface).expect("Failed to create packet reader");
-        router.capture_packets(reader, redis_dissector).await
-    };
+    let tls_reader = TlsReader::new().await.expect("Failed to create TLS reader");
+    let res = router.capture_packets(tls_reader, redis_dissector).await;
 
     match res {
         Ok(_) => info!("Packet router stopped successfully"),
