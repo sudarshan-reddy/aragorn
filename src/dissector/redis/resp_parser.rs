@@ -211,15 +211,4 @@ mod tests {
         };
         assert_eq!(parse_array(input).unwrap().1, expected);
     }
-
-    //#[test]
-    //fn test_parse_array_mixed() {
-    //    let input = b"*4\r\n$4\r\nECHO\r\n$3\r\nkey\r\n$5\r\nvalue\r\n$4\r\nTEST\r\n";
-    //    let expected = RespValue {
-    //        command: Some("ECHO".to_string()),
-    //        key: Some("key".to_string()),
-    //        value: Some("value".to_string()),
-    //    };
-    //    assert_eq!(parse_array(input).unwrap().1, expected);
-    //}
 }

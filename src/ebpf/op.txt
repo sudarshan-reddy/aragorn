@@ -1,0 +1,163 @@
+Building modified XDP program...
+Removing any existing XDP program...
+Loading modified XDP program on eth0...
+XDP program loaded successfully!
+Found pinned map at /sys/fs/bpf/xdp/globals/target_port
+Setting target port to 6379 (0x000018eb)...
+Map contents:
+key: 00 00 00 00  value: eb 00 00 00
+Found 1 element
+
+XDP program is now running with debug output!
+
+For testing, use (in a different terminal):
+  echo 'test' | nc -v 192.168.5.15 6379
+
+Monitoring trace_pipe for debug output...
+Press Ctrl+C to stop monitoring
+
+            sudo-40652   [000] ..s.. 20226.858435: bpf_trace_printk: DEBUG: XDP processing started
+            sudo-40652   [000] ..s.. 20226.858435: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+            sudo-40652   [000] ..s.. 20226.858436: bpf_trace_printk: DEBUG: Target port in map=235
+            sudo-40652   [000] ..s.. 20226.858436: bpf_trace_printk: DEBUG: XDP processing started
+            sudo-40652   [000] ..s.. 20226.858436: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+            sudo-40652   [000] ..s.. 20226.858437: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20226.858491: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20226.858491: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20226.858491: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] .Ns.. 20226.858601: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] .Ns.. 20226.858601: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] .Ns.. 20226.858601: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20226.858652: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20226.858652: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20226.858652: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20226.860106: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20226.860106: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20226.860107: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20226.861332: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20226.861333: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20226.861333: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20226.861333: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20226.861334: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20226.861334: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20304.297861: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.153735: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.153739: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.153740: bpf_trace_printk: DEBUG: Target port in map=235
+CPU:0 [LOST 76 EVENTS]
+          <idle>-0       [000] ..s.. 20411.920181: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.920181: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.920674: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.920674: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.920675: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.920984: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.920985: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.920985: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921369: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921369: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921370: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921571: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921571: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921572: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921982: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921983: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921983: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921984: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921984: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921984: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921985: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921985: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921986: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.921986: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.921986: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.921986: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.922367: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.922367: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.922368: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.922426: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.922427: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.922427: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.939030: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.939030: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.939031: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.939388: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.939389: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.939389: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.939390: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.939390: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.939390: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.939391: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.939391: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.939392: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.939392: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.939392: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.939392: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.939684: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.939685: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.939685: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.939783: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.939783: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.939783: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940310: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940310: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940311: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940311: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940311: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940312: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940436: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940436: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940436: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940437: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940437: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940437: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940438: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940438: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940438: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940464: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940464: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940465: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940555: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940555: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940555: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940556: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940556: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940557: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940557: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940557: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940557: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.940647: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.940648: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.940648: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.940648: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.940648: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.940649: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.940649: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.940649: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.940649: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940755: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940755: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940756: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] .Ns.. 20411.940844: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] .Ns.. 20411.940844: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] .Ns.. 20411.940845: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940895: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940895: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940895: bpf_trace_printk: DEBUG: Target port in map=235
+           clang-40730   [000] ..s.. 20411.940997: bpf_trace_printk: DEBUG: XDP processing started
+           clang-40730   [000] ..s.. 20411.940997: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+           clang-40730   [000] ..s.. 20411.940997: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.941189: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.941189: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.941189: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.941430: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.941430: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.941430: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.941711: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.941712: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.941712: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] .Ns.. 20411.944119: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] .Ns.. 20411.944119: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] .Ns.. 20411.944119: bpf_trace_printk: DEBUG: Target port in map=235
+          <idle>-0       [000] ..s.. 20411.946971: bpf_trace_printk: DEBUG: XDP processing started
+          <idle>-0       [000] ..s.. 20411.946972: bpf_trace_printk: DEBUG: TCP packet src_port=58055, dst_port=22
+          <idle>-0       [000] ..s.. 20411.946972: bpf_trace_printk: DEBUG: Target port in map=235
