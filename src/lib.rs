@@ -1,5 +1,4 @@
 pub mod dissector;
-pub mod live_packet_reader;
 pub mod metrics;
 pub mod packet_router;
 pub mod probes;

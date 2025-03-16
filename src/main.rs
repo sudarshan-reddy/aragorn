@@ -1,5 +1,4 @@
 mod dissector;
-mod live_packet_reader;
 mod metrics;
 mod packet_router;
 mod probes;
