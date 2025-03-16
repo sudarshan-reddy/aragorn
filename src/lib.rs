@@ -2,7 +2,7 @@ pub mod dissector;
 pub mod metrics;
 pub mod packet_router;
 pub mod probes;
-pub mod tls_reader;
+pub mod xdp_reader;
 
 // Re-export key components for easier access
 pub use dissector::Dissector;
