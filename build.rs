@@ -1,5 +1,4 @@
 use std::env;
-use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -12,11 +11,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", bpf_source);
 
-    // Create build directory if it doesn't exist
-    let build_dir = PathBuf::from("build");
-    fs::create_dir_all(&build_dir).expect("Failed to create build directory");
-
-    // Compile with debug info and kernel BTF
+    // Compile the eBPF program
     let status = Command::new("clang")
         .args(&[
             "-g",
@@ -39,13 +34,6 @@ fn main() {
     if !status.success() {
         panic!("Failed to compile BPF program");
     }
-
-    // Copy the compiled object file to the target directory
-    let dest_dir = PathBuf::from("target");
-    fs::create_dir_all(&dest_dir).expect("Failed to create target directory");
-
-    let dest_file = dest_dir.join("xdp_tcp_capture.o");
-    fs::copy(&out_file, &dest_file).expect("Failed to copy compiled BPF object file");
 
     println!("cargo:rerun-if-changed=build.rs");
 }

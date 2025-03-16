@@ -1,10 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use aya::maps::perf::AsyncPerfEventArray;
-use aya::{
-    maps::{Array, MapData},
-    programs::{Xdp, XdpFlags},
-    Bpf,
-};
+use aya::maps::{Array, MapData};
+use aya::programs::{Xdp, XdpFlags};
+use aya::Ebpf;
 use bytes::BytesMut;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,77 +22,65 @@ pub struct PacketMetadata {
 }
 
 pub struct XdpProbe {
-    _bpf: Bpf, // Keep bpf alive
+    _bpf: Ebpf, // Keep bpf alive
     events: Arc<Mutex<AsyncPerfEventArray<MapData>>>,
 }
 
 impl XdpProbe {
     pub async fn new(interface: &str, target_port: u16) -> Result<Self> {
-        let path = std::path::Path::new("target/xdp_tcp_capture.o");
-        if !path.exists() {
-            eprintln!(
-                "Error: XDP object file does not exist at {}",
-                path.display()
-            );
-            return Err(anyhow::anyhow!("XDP object file not found"));
-        }
-
-        // Load the XDP program
-        let mut bpf = match Bpf::load_file("target/xdp_tcp_capture.o") {
-            Ok(bpf) => {
-                println!("Successfully loaded BPF program!");
-                bpf
-            }
-            Err(e) => {
-                eprintln!("Failed to load BPF program: {:?}", e);
-                return Err(anyhow::anyhow!("Failed to load BPF program: {}", e));
-            }
-        };
-
-        println!("Successfully loaded BPF program.. getting XDP program ");
+        // Use aya::include_bytes_aligned! macro to load the BPF object file
+        let mut bpf = Ebpf::load(aya::include_bytes_aligned!(concat!(
+            env!("OUT_DIR"),
+            "/xdp_tcp_capture.o"
+        )))?;
 
         // Get the XDP program
-        let program = bpf
+        let program: &mut Xdp = bpf
             .program_mut("xdp_tcp_filter")
-            .ok_or_else(|| anyhow::anyhow!("XDP program not found"))?;
+            .context("XDP program not found")?
+            .try_into()?;
 
-        println!("Successfully loaded XDP program.. converting to XDP program");
+        // Load the program
+        program.load()?;
 
-        // Convert to XDP program
-        let xdp_program: &mut Xdp = program.try_into()?;
+        // Attempt to attach with multiple strategies
+        let attach_result = program
+            .attach(interface, XdpFlags::default())
+            .or_else(|_| program.attach(interface, XdpFlags::SKB_MODE));
 
-        println!("Successfully converted XDP program.. attaching to interface");
-
-        // Attach the XDP program to the interface
-        // xdp_program.attach(interface, XdpFlags::default())?;
-        xdp_program.attach(interface, XdpFlags::SKB_MODE)?;
-
-        println!("Successfully attached XDP program to interface.. setting target port");
+        // Attach the program with helpful context
+        attach_result.context(format!(
+            "Failed to attach XDP program to interface {}",
+            interface
+        ))?;
 
         // Set the target port in the map
         let target_port_map = bpf
             .map_mut("target_port")
-            .ok_or_else(|| anyhow::anyhow!("Target port map not found"))?;
+            .context("Target port map not found")?;
 
+        // Convert to Array and set the value
         let mut target_port_array = Array::try_from(target_port_map)?;
         target_port_array.set(0, target_port as u32, 0)?;
 
-        // Get the perf event array - using take_map() instead of map()
-        let map_events = bpf
-            .take_map("events")
-            .ok_or_else(|| anyhow::anyhow!("Events map not found"))?;
+        // Get the perf event array
+        let map_events = bpf.take_map("events").context("Events map not found")?;
 
         let perf_events = AsyncPerfEventArray::try_from(map_events)?;
 
         Ok(Self {
             _bpf: bpf,
-            events: Arc::new(Mutex::new(perf_events)), // Pass direct value, not reference
+            events: Arc::new(Mutex::new(perf_events)),
         })
     }
 
     pub async fn stream_for_events(&self) -> Result<impl Stream<Item = Result<Vec<u8>>>> {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
-        let cpus = aya::util::online_cpus()?;
+
+        // Get the number of available CPUs
+        let cpus = std::thread::available_parallelism()
+            .map(|n| (0..n.get()).collect::<Vec<_>>())
+            .unwrap_or_else(|_| vec![0]);
 
         for cpu_id in cpus {
             let events = self.events.clone();
@@ -106,29 +92,36 @@ impl XdpProbe {
                     .collect::<Vec<_>>();
 
                 // Open the perf event for this CPU
-                match events.lock().await.open(cpu_id, None) {
-                    Ok(mut event_array) => loop {
-                        match event_array.read_events(&mut buffers).await {
-                            Ok(events) => {
-                                for i in 0..events.read {
-                                    let buf = &buffers[i];
-                                    println!(
-                                        "CPU {}: Received event of size {}",
-                                        cpu_id,
-                                        buf.len()
-                                    );
-                                    if let Err(_) = tx.send(Ok(buf.to_vec())).await {
-                                        break;
+                match events.lock().await.open(cpu_id as u32, None) {
+                    Ok(mut event_array) => {
+                        loop {
+                            // Await the read_events
+                            match event_array.read_events(&mut buffers).await {
+                                Ok(events) => {
+                                    for i in 0..events.read {
+                                        let buf = &buffers[i];
+                                        if tx.send(Ok(buf.to_vec())).await.is_err() {
+                                            return;
+                                        }
                                     }
                                 }
-                            }
-                            Err(e) => {
-                                eprintln!("Error reading events: {:?}", e);
+                                Err(e) => {
+                                    let _ = tx
+                                        .send(Err(anyhow::anyhow!("Error reading events: {:?}", e)))
+                                        .await;
+                                    return;
+                                }
                             }
                         }
-                    },
+                    }
                     Err(e) => {
-                        eprintln!("Failed to open perf event on CPU {}: {:?}", cpu_id, e);
+                        let _ = tx
+                            .send(Err(anyhow::anyhow!(
+                                "Failed to open perf event on CPU {}: {:?}",
+                                cpu_id,
+                                e
+                            )))
+                            .await;
                     }
                 }
             });
